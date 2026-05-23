@@ -1,0 +1,6 @@
+faster-whisper
+fastapi
+jinja2
+python-multipart
+pysubs2
+uvicorn
