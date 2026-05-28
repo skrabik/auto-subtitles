@@ -1,6 +1,8 @@
 faster-whisper
 fastapi
 jinja2
+Pillow
 python-multipart
 pysubs2
+rlottie-python
 uvicorn

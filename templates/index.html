@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Local Reel Generator</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/app.js" defer></script>
   </head>
   <body>
     <main class="page">
@@ -28,7 +29,31 @@
           </div>
         {% endif %}
 
-        <form action="/generate" method="post" enctype="multipart/form-data" class="form">
+        <div id="ajax-message" class="message hidden"></div>
+
+        <div id="progress-panel" class="progress-panel hidden">
+          <div class="progress-header">
+            <strong id="progress-title">Generating video...</strong>
+            <span id="progress-percent">0%</span>
+          </div>
+          <div class="progress-track" aria-label="Generation progress">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="progress-message" class="hint">Queued...</p>
+        </div>
+
+        <section id="subtitle-editor" class="subtitle-editor hidden">
+          <div class="editor-header">
+            <div>
+              <h2>Edit subtitles</h2>
+              <p class="hint">Fix the text, then re-render the video without running transcription again.</p>
+            </div>
+            <button id="rerender-button" type="button">Re-render edited video</button>
+          </div>
+          <div id="subtitle-rows" class="caption-list"></div>
+        </section>
+
+        <form id="generation-form" action="/generate" method="post" enctype="multipart/form-data" class="form">
           <div class="top-row">
             <label class="field file-field">
               <span>Video file</span>
@@ -70,6 +95,14 @@
 
           <div class="grid subtitle-grid">
             <label class="field">
+              <span>Subtitle style</span>
+              <select name="subtitle_preset">
+                <option value="white_outline" selected>White with outline</option>
+                <option value="black_plain">Black, no outline</option>
+              </select>
+            </label>
+
+            <label class="field">
               <span>Words</span>
               <input type="number" name="max_words" value="2" min="1" max="8">
             </label>
@@ -96,7 +129,7 @@
           </div>
 
           <div class="action-row">
-            <button type="submit">Generate video</button>
+            <button id="generate-button" type="submit">Generate video</button>
             <p class="hint">Processing can take a few minutes. Keep this tab open.</p>
           </div>
         </form>

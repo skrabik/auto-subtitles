@@ -32,6 +32,7 @@ a {
 .card {
   width: min(1120px, 100%);
   max-height: calc(100vh - 36px);
+  overflow: auto;
   padding: 22px;
   border: 1px solid #e3e8f0;
   border-radius: 22px;
@@ -92,7 +93,7 @@ h1 {
 }
 
 .subtitle-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .field {
@@ -113,7 +114,8 @@ h1 {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   border: 1px solid #d9e1ec;
   border-radius: 12px;
@@ -126,6 +128,11 @@ select {
 
 input[type="file"] {
   padding: 10px 12px;
+}
+
+textarea {
+  min-height: 46px;
+  resize: vertical;
 }
 
 .action-row {
@@ -150,6 +157,11 @@ button:hover {
   background: #2a3445;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .message {
   margin: 0 0 14px;
   border-radius: 14px;
@@ -164,6 +176,103 @@ button:hover {
 .success {
   background: #eefbf1;
   color: #177245;
+}
+
+.hidden {
+  display: none;
+}
+
+.progress-panel {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  border: 1px solid #d9e1ec;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.progress-panel.hidden {
+  display: none;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: #273449;
+}
+
+.progress-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5ebf3;
+}
+
+.progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #111827, #245ec7);
+  transition: width 0.25s ease;
+}
+
+.progress-panel .hint {
+  margin: 0;
+}
+
+.subtitle-editor {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 14px;
+  border: 1px solid #d9e1ec;
+  border-radius: 16px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.subtitle-editor.hidden {
+  display: none;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.editor-header h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.editor-header .hint {
+  margin: 0;
+}
+
+.caption-list {
+  display: grid;
+  gap: 10px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.caption-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.caption-time {
+  padding-top: 11px;
+  color: #697386;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 @media (max-width: 880px) {
@@ -183,7 +292,9 @@ button:hover {
   }
 
   .header,
-  .action-row {
+  .action-row,
+  .editor-header,
+  .caption-row {
     display: grid;
   }
 

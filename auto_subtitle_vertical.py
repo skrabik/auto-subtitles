@@ -7,6 +7,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 
 TARGET_WIDTH = 1080
@@ -26,6 +27,8 @@ class SubtitleStyle:
     outline: int = 3
     shadow: int = 1
     margin_v: int = 370
+    primary_color: tuple[int, int, int] = (255, 255, 255)
+    outline_color: tuple[int, int, int] = (0, 0, 0)
 
 
 def run_command(command: list[str], cwd: Path | None = None) -> None:
@@ -143,8 +146,8 @@ def create_ass_subtitles(
     style = pysubs2.SSAStyle()
     style.fontname = "Arial"
     style.fontsize = subtitle_style.font_size
-    style.primarycolor = pysubs2.Color(255, 255, 255)
-    style.outlinecolor = pysubs2.Color(0, 0, 0)
+    style.primarycolor = pysubs2.Color(*subtitle_style.primary_color)
+    style.outlinecolor = pysubs2.Color(*subtitle_style.outline_color)
     style.backcolor = pysubs2.Color(0, 0, 0, 90)
     style.bold = True
     style.outline = subtitle_style.outline
@@ -205,33 +208,35 @@ def default_output_path(input_path: Path) -> Path:
     return input_path.with_name(f"{input_path.stem}_vertical_subtitled.mp4")
 
 
-def process_video(
+def generate_captions(
     input_path: Path,
-    output_path: Path,
     model_size: str = "small",
     language: str | None = None,
     device: str = "cpu",
     compute_type: str = "int8",
     max_words: int = 2,
-    subtitle_style: SubtitleStyle | None = None,
-    keep_subtitles: bool = False,
-) -> Path:
+    progress_callback: Callable[[int, str], None] | None = None,
+) -> list[Caption]:
+    def report(progress: int, message: str) -> None:
+        if progress_callback is not None:
+            progress_callback(progress, message)
+
     if not input_path.exists():
         raise SystemExit(f"Input video does not exist: {input_path}")
 
+    report(5, "Checking ffmpeg...")
     require_ffmpeg()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    subtitle_style = subtitle_style or SubtitleStyle()
 
     with tempfile.TemporaryDirectory(prefix="auto_subtitle_vertical_") as temp_dir:
         workdir = Path(temp_dir)
         audio_path = workdir / "audio.wav"
-        ass_path = workdir / "captions.ass"
 
         print("Extracting audio...")
+        report(15, "Extracting audio...")
         extract_audio(input_path, audio_path)
 
         print("Transcribing audio...")
+        report(35, "Generating subtitles...")
         captions = transcribe_audio(
             audio_path=audio_path,
             model_size=model_size,
@@ -244,10 +249,42 @@ def process_video(
         if not captions:
             raise SystemExit("No speech was detected, so subtitles were not generated.")
 
+    report(70, f"Generated {len(captions)} captions.")
+    return captions
+
+
+def render_video_with_captions(
+    input_path: Path,
+    output_path: Path,
+    captions: list[Caption],
+    subtitle_style: SubtitleStyle | None = None,
+    keep_subtitles: bool = False,
+    progress_callback: Callable[[int, str], None] | None = None,
+) -> Path:
+    def report(progress: int, message: str) -> None:
+        if progress_callback is not None:
+            progress_callback(progress, message)
+
+    if not input_path.exists():
+        raise SystemExit(f"Input video does not exist: {input_path}")
+
+    if not captions:
+        raise SystemExit("No subtitles were provided.")
+
+    report(70, f"Creating subtitles ({len(captions)} captions)...")
+    require_ffmpeg()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    subtitle_style = subtitle_style or SubtitleStyle()
+
+    with tempfile.TemporaryDirectory(prefix="auto_subtitle_vertical_") as temp_dir:
+        workdir = Path(temp_dir)
+        ass_path = workdir / "captions.ass"
+
         print(f"Creating subtitles ({len(captions)} captions)...")
         create_ass_subtitles(captions, ass_path, subtitle_style=subtitle_style)
 
         print("Rendering vertical video...")
+        report(85, "Rendering vertical video...")
         render_vertical_video(input_path, output_path, workdir)
 
         if keep_subtitles:
@@ -255,7 +292,39 @@ def process_video(
             shutil.copy2(ass_path, subtitles_output)
             print(f"Saved subtitles: {subtitles_output}")
 
+    report(100, "Video is ready.")
     return output_path
+
+
+def process_video(
+    input_path: Path,
+    output_path: Path,
+    model_size: str = "small",
+    language: str | None = None,
+    device: str = "cpu",
+    compute_type: str = "int8",
+    max_words: int = 2,
+    subtitle_style: SubtitleStyle | None = None,
+    keep_subtitles: bool = False,
+    progress_callback: Callable[[int, str], None] | None = None,
+) -> Path:
+    captions = generate_captions(
+        input_path=input_path,
+        model_size=model_size,
+        language=language,
+        device=device,
+        compute_type=compute_type,
+        max_words=max_words,
+        progress_callback=progress_callback,
+    )
+    return render_video_with_captions(
+        input_path=input_path,
+        output_path=output_path,
+        captions=captions,
+        subtitle_style=subtitle_style,
+        keep_subtitles=keep_subtitles,
+        progress_callback=progress_callback,
+    )
 
 
 def parse_args() -> argparse.Namespace:
