@@ -1,8 +1,10 @@
 faster-whisper
 fastapi
+httpx[socks]
 jinja2
 Pillow
 python-multipart
 pysubs2
 rlottie-python
+socksio
 uvicorn

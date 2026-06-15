@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -12,6 +13,14 @@ from typing import Callable
 
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1920
+PROXY_ENV_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
 
 
 @dataclass(frozen=True)
@@ -29,6 +38,15 @@ class SubtitleStyle:
     margin_v: int = 370
     primary_color: tuple[int, int, int] = (255, 255, 255)
     outline_color: tuple[int, int, int] = (0, 0, 0)
+
+
+def disable_proxy_environment() -> None:
+    """Keep the local generator from inheriting system/VPN proxy settings."""
+    for name in PROXY_ENV_VARS:
+        os.environ.pop(name, None)
+
+    os.environ["NO_PROXY"] = "*"
+    os.environ["no_proxy"] = "*"
 
 
 def run_command(command: list[str], cwd: Path | None = None) -> None:
@@ -78,6 +96,8 @@ def transcribe_audio(
     compute_type: str,
     max_words: int,
 ) -> list[Caption]:
+    disable_proxy_environment()
+
     try:
         from faster_whisper import WhisperModel
     except ImportError as exc:
@@ -204,6 +224,34 @@ def render_vertical_video(video_path: Path, output_path: Path, workdir: Path) ->
     )
 
 
+def clean_video_metadata(input_path: Path, output_path: Path) -> None:
+    """Remux the rendered file while dropping metadata, chapters, subtitles, and data streams."""
+    run_command(
+        [
+            "ffmpeg",
+            "-y",
+            "-bitexact",
+            "-i",
+            str(input_path),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-map_metadata",
+            "-1",
+            "-map_chapters",
+            "-1",
+            "-dn",
+            "-sn",
+            "-c",
+            "copy",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ]
+    )
+
+
 def default_output_path(input_path: Path) -> Path:
     return input_path.with_name(f"{input_path.stem}_vertical_subtitled.mp4")
 
@@ -283,9 +331,15 @@ def render_video_with_captions(
         print(f"Creating subtitles ({len(captions)} captions)...")
         create_ass_subtitles(captions, ass_path, subtitle_style=subtitle_style)
 
+        rendered_path = workdir / "rendered.mp4"
+
         print("Rendering vertical video...")
         report(85, "Rendering vertical video...")
-        render_vertical_video(input_path, output_path, workdir)
+        render_vertical_video(input_path, rendered_path, workdir)
+
+        print("Cleaning video metadata...")
+        report(95, "Cleaning video metadata...")
+        clean_video_metadata(rendered_path, output_path)
 
         if keep_subtitles:
             subtitles_output = output_path.with_suffix(".ass")
