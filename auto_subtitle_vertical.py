@@ -35,9 +35,10 @@ class SubtitleStyle:
     font_size: int = 114
     outline: int = 3
     shadow: int = 1
-    margin_v: int = 370
+    margin_v: int = TARGET_HEIGHT // 2
     primary_color: tuple[int, int, int] = (255, 255, 255)
     outline_color: tuple[int, int, int] = (0, 0, 0)
+    highlight_color: tuple[int, int, int] = (255, 230, 0)
 
 
 def disable_proxy_environment() -> None:
@@ -148,6 +149,32 @@ def split_caption(start: float, end: float, text: str, max_words: int = 2) -> li
     return result
 
 
+def ass_escape_text(text: str) -> str:
+    return text.replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}")
+
+
+def create_highlighted_ass_text(caption: Caption) -> str:
+    words = caption.text.split()
+    if not words:
+        return ass_escape_text(caption.text)
+
+    total_centiseconds = max(len(words), round((caption.end - caption.start) * 100))
+    base_word_duration = max(1, total_centiseconds // len(words))
+    remaining_duration = total_centiseconds
+    highlighted_words: list[str] = []
+
+    for index, word in enumerate(words):
+        if index == len(words) - 1:
+            word_duration = remaining_duration
+        else:
+            word_duration = min(base_word_duration, remaining_duration - (len(words) - index - 1))
+            remaining_duration -= word_duration
+
+        highlighted_words.append(rf"{{\kf{word_duration}}}{ass_escape_text(word)}")
+
+    return " ".join(highlighted_words)
+
+
 def create_ass_subtitles(
     captions: list[Caption], ass_path: Path, subtitle_style: SubtitleStyle
 ) -> None:
@@ -166,7 +193,8 @@ def create_ass_subtitles(
     style = pysubs2.SSAStyle()
     style.fontname = "Arial"
     style.fontsize = subtitle_style.font_size
-    style.primarycolor = pysubs2.Color(*subtitle_style.primary_color)
+    style.primarycolor = pysubs2.Color(*subtitle_style.highlight_color)
+    style.secondarycolor = pysubs2.Color(*subtitle_style.primary_color)
     style.outlinecolor = pysubs2.Color(*subtitle_style.outline_color)
     style.backcolor = pysubs2.Color(0, 0, 0, 90)
     style.bold = True
@@ -183,7 +211,7 @@ def create_ass_subtitles(
             pysubs2.SSAEvent(
                 start=pysubs2.make_time(s=caption.start),
                 end=pysubs2.make_time(s=caption.end),
-                text=caption.text,
+                text=create_highlighted_ass_text(caption),
                 style="Default",
             )
         )
